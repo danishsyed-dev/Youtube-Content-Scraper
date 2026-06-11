@@ -25,8 +25,8 @@ Before running the application, make sure you have:
 
 1. **Clone the repository:**
    ```bash
-   git clone <your-repository-url>
-   cd YouTube-Content-Scraper
+   git clone https://github.com/danishsyed-dev/Youtube-Content-Scraper.git
+   cd Youtube-Content-Scraper
    ```
 
 2. **Create and activate a virtual environment (recommended):**
