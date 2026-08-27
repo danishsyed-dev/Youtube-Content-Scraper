@@ -73,3 +73,9 @@ Before running the application, make sure you have:
 
 ## ⚠️ Disclaimer
 This project is for educational purposes. Scraping websites must comply with their respective terms of service and robots.txt policies. Use responsibly and avoid overloading target servers.
+
+## 📄 License
+This project is licensed under the [MIT License](LICENSE).
+
+## 🤝 Contributing
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or pull request.

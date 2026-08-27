@@ -5,49 +5,61 @@ from tqdm import tqdm
 from bs4 import BeautifulSoup
 from selenium import webdriver
 import os
+from urllib.parse import quote_plus
 
 app = Flask(__name__)
 
 def scrape_youtube_data(company_name):
     browser = webdriver.Chrome()
+    try:
+        search_url = 'https://www.google.com/search?q=' + quote_plus(company_name + ' youtube')
+        browser.get(search_url)
 
-    link = 'https://www.google.com/search?q=' + company_name + 'youtube'
-    browser.get(link)
+        soup = BeautifulSoup(browser.page_source, 'html.parser')
+        result = next(
+            (item.find('a', href=True) for item in soup.find_all('div', class_='MjjYud')),
+            None,
+        )
+        if result is None:
+            raise ValueError('No search result found for that company.')
 
-    soup = BeautifulSoup(browser.page_source, 'html.parser')
+        channel_url = result['href'].rstrip('/')
+        browser.get(channel_url + '/videos')
 
-    for i in soup.find_all('div', class_='MjjYud'):
-        link = i.find('a').get('href')
-        break
+        for i in tqdm(range(0, 2500000, 1000)):
+            browser.execute_script('window.scrollTo(0,' + str(i) + ')')
+            time.sleep(0.1)
 
-    browser.get(link + '/' + 'videos')
+        soup = BeautifulSoup(browser.page_source, 'html.parser')
 
-    soup = BeautifulSoup(browser.page_source, 'html.parser')
+        data = []
+        for item in soup.find_all('ytd-rich-item-renderer', class_='style-scope ytd-rich-grid-row'):
+            video = item.find(
+                'a', class_='yt-simple-endpoint focus-on-expand style-scope ytd-rich-grid-media'
+            )
+            metadata = item.find_all('span', class_='inline-metadata-item style-scope ytd-video-meta-block')
+            if video is None or len(metadata) < 2:
+                continue
+            data.append([
+                'https://www.youtube.com/' + video['href'].lstrip('/'),
+                video.get('title', ''),
+                metadata[0].text.split(' ')[0],
+                metadata[1].text,
+            ])
 
-    for i in tqdm(range(0, 2500000, 1000)):
-        browser.execute_script('window.scrollTo(0,' + str(i) + ')')
-        time.sleep(0.1)
-
-    soup = BeautifulSoup(browser.page_source, 'html.parser')
-
-    data = []
-    for i in soup.find_all('ytd-rich-item-renderer', class_='style-scope ytd-rich-grid-row'):
-        link = "https://www.youtube.com/" + i.find('a', class_='yt-simple-endpoint focus-on-expand style-scope ytd-rich-grid-media').get('href')
-        title = i.find('a', class_='yt-simple-endpoint focus-on-expand style-scope ytd-rich-grid-media').get('title')
-        views = (i.find('span', class_="inline-metadata-item style-scope ytd-video-meta-block").text.split(" ")[0])
-        upload_time = (i.find_all('span', class_="inline-metadata-item style-scope ytd-video-meta-block")[1].text)
-        data.append([link, title, views, upload_time])
-
-    df = pd.DataFrame(data, columns=['Link', 'Title', 'Views', 'Upload Time'])
-
-    df.to_csv('data.csv', index=False)
-    browser.quit()
+        df = pd.DataFrame(data, columns=['Link', 'Title', 'Views', 'Upload Time'])
+        df.to_csv('data.csv', index=False)
+    finally:
+        browser.quit()
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         input_company = request.form['company']
-        scrape_youtube_data(input_company)
+        try:
+            scrape_youtube_data(input_company)
+        except ValueError as error:
+            return render_template('index.html', error=str(error)), 400
         return redirect(url_for('download'))
 
     return render_template('index.html')
