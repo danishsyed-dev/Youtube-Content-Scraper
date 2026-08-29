@@ -1,0 +1,27 @@
+[project]
+name = "youtube-content-scraper"
+version = "1.0.0"
+description = "A Flask web app that scrapes a YouTube channel's video catalog into a CSV."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+# E/F: pyflakes+pycodestyle, I: isort, B: bugbear, UP: pyupgrade,
+# C4: comprehensions, SIM: simplify
+select = ["E", "F", "I", "B", "UP", "C4", "SIM"]
+ignore = [
+  "E501",   # line length is handled by the formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]  # asserts are expected in tests
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]

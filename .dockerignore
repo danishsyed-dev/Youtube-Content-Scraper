@@ -1,0 +1,30 @@
+# Version control / project meta
+.git
+.gitignore
+.github
+*.md
+!README.md
+LICENSE
+
+# Python caches & envs
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+
+# Local dev files
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+.ipynb_checkpoints/
+*.ipynb
+
+# Generated output
+output/
+data.csv
+*.log

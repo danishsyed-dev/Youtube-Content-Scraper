@@ -1,73 +1,161 @@
-from flask import Flask, render_template, request, send_file, redirect, url_for
-import time
-import pandas as pd
-from tqdm import tqdm
-from bs4 import BeautifulSoup
-from selenium import webdriver
-import os
-from urllib.parse import quote_plus
+"""Flask web application (application-factory pattern).
 
-app = Flask(__name__)
+Endpoints
+---------
+GET  /                 -> the single-page UI
+POST /scrape           -> start a scrape job; returns {job_id} (202)
+GET  /status/<job_id>  -> job status + progress + preview (JSON)
+GET  /download/<job_id>-> the generated CSV (attachment)
+GET  /health           -> liveness probe (JSON)
 
-def scrape_youtube_data(company_name):
-    browser = webdriver.Chrome()
-    try:
-        search_url = 'https://www.google.com/search?q=' + quote_plus(company_name + ' youtube')
-        browser.get(search_url)
+Scraping runs on a background thread via ``JobManager`` so requests return
+immediately and the browser polls ``/status`` for progress.
+"""
 
-        soup = BeautifulSoup(browser.page_source, 'html.parser')
-        result = next(
-            (item.find('a', href=True) for item in soup.find_all('div', class_='MjjYud')),
-            None,
+from __future__ import annotations
+
+import logging
+import secrets
+
+from flask import (
+    Flask,
+    abort,
+    jsonify,
+    render_template,
+    request,
+    send_file,
+)
+
+from config import Config
+from jobs import JobManager, JobStatus
+from scraper import scrape_channel
+
+
+def _configure_logging(level: str) -> None:
+    logging.basicConfig(
+        level=getattr(logging, level, logging.INFO),
+        format="%(asctime)s %(levelname)-7s [%(name)s] %(message)s",
+    )
+
+
+def create_app(config: Config | None = None, job_manager: JobManager | None = None) -> Flask:
+    """Build and configure the Flask app.
+
+    Args are injectable so tests can pass a custom ``Config`` and a
+    ``JobManager`` wired to a fake scraper (no real browser).
+    """
+    config = config or Config()
+    _configure_logging(config.LOG_LEVEL)
+    logger = logging.getLogger(__name__)
+
+    app = Flask(__name__)
+
+    # Secret key: use the configured one, or generate an ephemeral key in dev
+    # (with a warning) so the app still boots.
+    if config.SECRET_KEY:
+        app.secret_key = config.SECRET_KEY
+    else:
+        app.secret_key = secrets.token_hex(32)
+        logger.warning(
+            "SECRET_KEY not set — generated a temporary key. Set SECRET_KEY in "
+            "the environment for stable sessions."
         )
-        if result is None:
-            raise ValueError('No search result found for that company.')
 
-        channel_url = result['href'].rstrip('/')
-        browser.get(channel_url + '/videos')
+    config.ensure_output_dir()
 
-        for i in tqdm(range(0, 2500000, 1000)):
-            browser.execute_script('window.scrollTo(0,' + str(i) + ')')
-            time.sleep(0.1)
+    # Default job manager wires the real scraper with tuning from config.
+    if job_manager is None:
+        job_manager = JobManager(
+            output_dir=config.OUTPUT_DIR,
+            scrape_fn=scrape_channel,
+            scrape_kwargs=dict(
+                headless=config.HEADLESS,
+                chrome_binary=config.CHROME_BINARY,
+                scrape_timeout=config.SCRAPE_TIMEOUT,
+                scroll_pause=config.SCROLL_PAUSE,
+                scroll_max_stale=config.SCROLL_MAX_STALE,
+                scroll_max_rounds=config.SCROLL_MAX_ROUNDS,
+                element_timeout=config.ELEMENT_TIMEOUT,
+            ),
+        )
 
-        soup = BeautifulSoup(browser.page_source, 'html.parser')
+    app.config["APP_CONFIG"] = config
+    app.config["JOB_MANAGER"] = job_manager
 
-        data = []
-        for item in soup.find_all('ytd-rich-item-renderer', class_='style-scope ytd-rich-grid-row'):
-            video = item.find(
-                'a', class_='yt-simple-endpoint focus-on-expand style-scope ytd-rich-grid-media'
+    # ----------------------------------------------------------------- routes
+    @app.get("/")
+    def index():
+        return render_template("index.html")
+
+    @app.post("/scrape")
+    def scrape():
+        company = (request.form.get("company") or "").strip()
+        if not company:
+            return jsonify(error="Please enter a company name."), 400
+        if len(company) > config.MAX_COMPANY_LEN:
+            return (
+                jsonify(
+                    error=f"Company name is too long "
+                    f"(max {config.MAX_COMPANY_LEN} characters)."
+                ),
+                400,
             )
-            metadata = item.find_all('span', class_='inline-metadata-item style-scope ytd-video-meta-block')
-            if video is None or len(metadata) < 2:
-                continue
-            data.append([
-                'https://www.youtube.com/' + video['href'].lstrip('/'),
-                video.get('title', ''),
-                metadata[0].text.split(' ')[0],
-                metadata[1].text,
-            ])
+        job = job_manager.submit(company)
+        logger.info("Submitted job %s for '%s'", job.id, company)
+        return jsonify(job_id=job.id, status=job.status.value), 202
 
-        df = pd.DataFrame(data, columns=['Link', 'Title', 'Views', 'Upload Time'])
-        df.to_csv('data.csv', index=False)
-    finally:
-        browser.quit()
+    @app.get("/status/<job_id>")
+    def status(job_id: str):
+        job = job_manager.get(job_id)
+        if job is None:
+            return jsonify(error="Unknown job id."), 404
+        return jsonify(job.to_public_dict())
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if request.method == 'POST':
-        input_company = request.form['company']
-        try:
-            scrape_youtube_data(input_company)
-        except ValueError as error:
-            return render_template('index.html', error=str(error)), 400
-        return redirect(url_for('download'))
+    @app.get("/download/<job_id>")
+    def download(job_id: str):
+        job = job_manager.get(job_id)
+        if job is None:
+            abort(404, description="Unknown job id.")
+        if job.status != JobStatus.DONE or not job.csv_path or not job.csv_path.exists():
+            abort(409, description="This job's file is not ready yet.")
+        safe_company = "".join(
+            c for c in job.company if c.isalnum() or c in (" ", "-", "_")
+        ).strip().replace(" ", "_") or "youtube"
+        return send_file(
+            job.csv_path,
+            as_attachment=True,
+            download_name=f"{safe_company}_videos.csv",
+            mimetype="text/csv",
+        )
 
-    return render_template('index.html')
+    @app.get("/health")
+    def health():
+        return jsonify(status="ok")
 
-@app.route('/download')
-def download():
-    path = os.path.join(os.getcwd(), 'data.csv')
-    return send_file(path, as_attachment=True)
+    # -------------------------------------------------------------- errors
+    @app.errorhandler(404)
+    def not_found(err):
+        if request.path.startswith(("/status", "/download", "/scrape")):
+            return jsonify(error=getattr(err, "description", "Not found.")), 404
+        return render_template("index.html", error="Page not found."), 404
 
-if __name__ == '__main__':
-    app.run(debug=True)
+    @app.errorhandler(409)
+    def conflict(err):
+        return jsonify(error=getattr(err, "description", "Conflict.")), 409
+
+    @app.errorhandler(500)
+    def server_error(err):  # pragma: no cover - defensive
+        logger.exception("Internal server error")
+        return jsonify(error="Internal server error."), 500
+
+    return app
+
+
+# Module-level app for `flask run` / gunicorn ("app:app").
+app = create_app()
+
+
+if __name__ == "__main__":
+    cfg = app.config["APP_CONFIG"]
+    # debug is driven by config (FLASK_DEBUG) and defaults to OFF.
+    app.run(host=cfg.HOST, port=cfg.PORT, debug=cfg.DEBUG)

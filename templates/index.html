@@ -1,24 +1,72 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouTube Scraper</title>
-</head>
-<body>
-    <h1>YouTube Scraper</h1>
-    <form method="post" action="/">
-        <label for="company">Enter Company Name:</label>
-        <input type="text" id="company" name="company" required>
-        <button type="submit">Scrape YouTube Data</button>
-    </form>
+{% extends "base.html" %}
 
-    {% if error %}
-        <p role="alert">{{ error }}</p>
-    {% endif %}
+{% block content %}
+<main class="console">
+  <section class="lede">
+    <p class="eyebrow">Channel video extractor</p>
+    <h1>Pull a channel's full video catalog into a&nbsp;spreadsheet.</h1>
+    <p class="sub">
+      Enter a company or creator name. We locate their YouTube channel, load
+      every video on the Videos tab, and hand back a CSV of links, titles,
+      view counts, and upload dates.
+    </p>
+  </section>
 
-    {% block content %}{% endblock %}
+  <form id="scrape-form" class="control" autocomplete="off">
+    <label class="field">
+      <span class="field-label">Company or channel name</span>
+      <input
+        type="text"
+        id="company"
+        name="company"
+        maxlength="100"
+        placeholder="e.g. Figma"
+        required
+        aria-describedby="form-error" />
+    </label>
+    <button type="submit" id="submit-btn">
+      <span class="btn-label">Extract videos</span>
+    </button>
+  </form>
 
-</body>
-</html>
+  <p id="form-error" class="error" role="alert" hidden></p>
+
+  <!-- Live status console: the signature element -->
+  <section id="monitor" class="monitor" hidden aria-live="polite">
+    <div class="monitor-head">
+      <span class="status-dot" data-state="pending"></span>
+      <span id="status-text" class="status-text">Queued</span>
+      <span id="status-pct" class="status-pct">0%</span>
+    </div>
+    <div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressbar">
+      <div id="bar" class="bar"></div>
+    </div>
+    <dl class="readout">
+      <div><dt>Target</dt><dd id="ro-company">—</dd></div>
+      <div><dt>Job</dt><dd id="ro-job" class="mono">—</dd></div>
+      <div><dt>Videos</dt><dd id="ro-count">—</dd></div>
+    </dl>
+  </section>
+
+  <!-- Results -->
+  <section id="results" class="results" hidden>
+    <div class="results-head">
+      <h2 id="results-title">Results</h2>
+      <a id="download-btn" class="download" href="#" download>Download CSV</a>
+    </div>
+    <div class="table-wrap">
+      <table id="results-table">
+        <thead>
+          <tr><th class="col-idx">#</th><th>Title</th><th>Views</th><th>Uploaded</th><th>Link</th></tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+    <p id="preview-note" class="preview-note"></p>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='app.js') }}" defer></script>
+{% endblock %}

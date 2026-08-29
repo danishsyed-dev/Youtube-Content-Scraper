@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Channel Extraction{% endblock %} · YouTube Content Scraper</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%231b2a6b'/><rect x='4' y='5' width='8' height='6' rx='1.5' fill='white'/><path d='M7 6.5l2.2 1.5L7 9.5z' fill='%231b2a6b'/></svg>" />
+</head>
+<body>
+  <div class="frame">
+    <header class="masthead">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="mark-text">YT&thinsp;/&thinsp;EXTRACT</span>
+      <a class="mast-link" href="https://github.com/danishsyed-dev/Youtube-Content-Scraper" rel="noopener">source</a>
+    </header>
+
+    {% block content %}{% endblock %}
+
+    <footer class="colophon">
+      <span>Educational use only — respect YouTube's Terms of Service and robots.txt.</span>
+    </footer>
+  </div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

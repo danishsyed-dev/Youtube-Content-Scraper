@@ -1,0 +1,17 @@
+services:
+  scraper:
+    build: .
+    image: youtube-content-scraper
+    ports:
+      - "8000:8000"
+    environment:
+      # Set a real secret in a .env file or your shell before deploying.
+      SECRET_KEY: ${SECRET_KEY:-please-change-me}
+      HEADLESS: "true"
+      LOG_LEVEL: INFO
+    volumes:
+      # Persist generated CSVs on the host.
+      - ./output:/app/output
+    # Chromium can exhaust the default /dev/shm; give it more room.
+    shm_size: "1gb"
+    restart: unless-stopped
