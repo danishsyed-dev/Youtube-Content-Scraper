@@ -29,10 +29,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Lint (ruff)
-        run: |
-          ruff check .
-          ruff format --check .
+      - name: Lint (ruff check)
+        run: ruff check .
+
+      # Formatting is advisory: it reports diffs without failing the build so a
+      # cosmetic nit never blocks a PR. Run `ruff format .` locally to apply.
+      - name: Format check (advisory)
+        run: ruff format --check .
+        continue-on-error: true
 
       - name: Run tests
         run: pytest

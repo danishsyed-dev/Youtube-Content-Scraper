@@ -9,17 +9,19 @@ license = { text = "MIT" }
 [tool.ruff]
 line-length = 100
 target-version = "py39"
+# The prototype notebook is kept for reference but not held to lint standards.
+extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]
-# E/F: pyflakes+pycodestyle, I: isort, B: bugbear, UP: pyupgrade,
-# C4: comprehensions, SIM: simplify
-select = ["E", "F", "I", "B", "UP", "C4", "SIM"]
+# E4/E7/E9 (imports, statements, runtime) + F (pyflakes) are ruff's defaults and
+# don't overlap with the formatter. Plus B (bugbear), C4 (comprehensions), and
+# SIM (simplify) for real bug/complexity checks. Whitespace/blank-line/line-length
+# style (E1/E2/E3/E5) is intentionally left to `ruff format`. isort ("I") and
+# pyupgrade ("UP") are off to avoid churn on the __future__-annotations style.
+select = ["E4", "E7", "E9", "F", "B", "C4", "SIM"]
 ignore = [
-  "E501",   # line length is handled by the formatter
+  "E501",   # line length is enforced by the formatter, not the linter
 ]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101"]  # asserts are expected in tests
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

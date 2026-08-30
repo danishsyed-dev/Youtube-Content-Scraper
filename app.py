@@ -68,15 +68,15 @@ def create_app(config: Config | None = None, job_manager: JobManager | None = No
         job_manager = JobManager(
             output_dir=config.OUTPUT_DIR,
             scrape_fn=scrape_channel,
-            scrape_kwargs=dict(
-                headless=config.HEADLESS,
-                chrome_binary=config.CHROME_BINARY,
-                scrape_timeout=config.SCRAPE_TIMEOUT,
-                scroll_pause=config.SCROLL_PAUSE,
-                scroll_max_stale=config.SCROLL_MAX_STALE,
-                scroll_max_rounds=config.SCROLL_MAX_ROUNDS,
-                element_timeout=config.ELEMENT_TIMEOUT,
-            ),
+            scrape_kwargs={
+                "headless": config.HEADLESS,
+                "chrome_binary": config.CHROME_BINARY,
+                "scrape_timeout": config.SCRAPE_TIMEOUT,
+                "scroll_pause": config.SCROLL_PAUSE,
+                "scroll_max_stale": config.SCROLL_MAX_STALE,
+                "scroll_max_rounds": config.SCROLL_MAX_ROUNDS,
+                "element_timeout": config.ELEMENT_TIMEOUT,
+            },
         )
 
     app.config["APP_CONFIG"] = config

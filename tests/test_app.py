@@ -100,14 +100,13 @@ def test_unexpected_error_is_caught(make_client):
     assert "unexpected error" in status["error"].lower()
 
 
-def test_download_before_ready_conflict(make_client, config):
-    # A job that never completes (stays pending) can't be built easily with the
-    # sync manager, so assert the guard via a manual job with no csv.
+def test_download_before_ready_conflict(config):
+    # A running job with no CSV yet must not be downloadable.
     from jobs import Job, JobManager, JobStatus
 
-    jm = JobManager(output_dir=config.OUTPUT_DIR, scrape_fn=make_fake_scrape())
     from app import create_app
 
+    jm = JobManager(output_dir=config.OUTPUT_DIR, scrape_fn=make_fake_scrape())
     app = create_app(config=config, job_manager=jm)
     client = app.test_client()
 
