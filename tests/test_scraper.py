@@ -103,6 +103,23 @@ def test_parse_falls_back_to_video_title_id():
     assert videos[0].title == "Legacy Layout"
 
 
+def test_parse_current_rich_grid_layout():
+    html = """
+    <ytd-rich-grid-media>
+      <a class="yt-simple-endpoint focus-on-expand style-scope ytd-rich-grid-media"
+         href="/watch?v=grid123" title="Grid Video"></a>
+      <span class="inline-metadata-item">99 views</span>
+      <span class="inline-metadata-item">2 hours ago</span>
+    </ytd-rich-grid-media>
+    """
+    videos = parse_videos(html)
+    assert len(videos) == 1
+    assert videos[0].link.endswith("grid123")
+    assert videos[0].title == "Grid Video"
+    assert videos[0].views == "99 views"
+    assert videos[0].upload_time == "2 hours ago"
+
+
 def test_videos_to_dicts_shape():
     videos = parse_videos(SAMPLE_HTML)
     dicts = videos_to_dicts(videos)

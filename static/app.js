@@ -88,7 +88,7 @@
             '<td class="views">' + esc(row.views || "—") + "</td>" +
             '<td class="uploaded">' + esc(row.upload_time || "—") + "</td>" +
             '<td class="col-link"><a class="watch" href="' + esc(row.link) +
-              '" target="_blank" rel="noopener">watch ↗</a></td>";
+              '" target="_blank" rel="noopener">watch ↗</a></td>';
           resultsBody.appendChild(tr);
         });
       }

@@ -64,12 +64,19 @@ def parse_videos(html: str) -> list[Video]:
     videos: list[Video] = []
     seen: set[str] = set()
 
-    for item in soup.find_all("ytd-rich-item-renderer"):
+    items = soup.select(
+        "ytd-rich-item-renderer, ytd-rich-grid-media, ytd-grid-video-renderer"
+    )
+
+    for item in items:
         # The title anchor carries both the href and (usually) the full title.
         # YouTube has shipped both "video-title-link" and "video-title" as the
         # id over time, so try both.
-        anchor = item.find("a", id="video-title-link") or item.find(
-            "a", id="video-title"
+        anchor = (
+            item.find("a", id="video-title-link")
+            or item.find("a", id="video-title")
+            or item.select_one("a[href*='/watch?'][title]")
+            or item.select_one("a[href*='/watch?']")
         )
         if anchor is None or not anchor.get("href"):
             continue
